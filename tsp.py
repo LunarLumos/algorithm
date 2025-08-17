@@ -1,36 +1,74 @@
-def tsp(graph):
-    n = len(graph)
-    visited = [False] * n
-    min_cost = [float('inf')]
-    best_path = [[]]  # To store the path with the minimum cost
+import itertools
 
-    def backtrack(current_city, count, cost_so_far, path):
-        if count == n and graph[current_city][0] > 0:
-            # Tour complete, return to start
-            total_cost = cost_so_far + graph[current_city][0]
-            if total_cost < min_cost[0]:
-                min_cost[0] = total_cost
-                best_path[0] = path + [0]  # complete the tour by returning to city 0
-            return
+def tsp_dp(distances):
+    n = len(distances)
+    memo = {}
 
-        for next_city in range(n):
-            if not visited[next_city] and graph[current_city][next_city] > 0:
-                visited[next_city] = True
-                backtrack(next_city, count + 1, cost_so_far + graph[current_city][next_city], path + [next_city])
-                visited[next_city] = False  # Backtrack
+    # Initialize base cases
+    for i in range(1, n):
+        memo[(frozenset([i]), i)] = distances[0][i]
 
-    visited[0] = True  # Start from city 0
-    backtrack(0, 1, 0, [0])
+    # Iterate over subset sizes
+    for subset_size in range(2, n):
+        for subset in itertools.combinations(range(1, n), subset_size):
+            subset = frozenset(subset)
+            for city in subset:
+                min_cost = float('inf')
+                for prev_city in subset:
+                    if prev_city == city:
+                        continue
+                    prev_subset = subset - {city}
+                    cost = memo[(prev_subset, prev_city)] + distances[prev_city][city]
+                    if cost < min_cost:
+                        min_cost = cost
+                memo[(subset, city)] = min_cost
 
-    print("Minimum Cost:", min_cost[0])
-    print("Minimum Path:", best_path[0])
+    # Compute minimal tour cost
+    full_subset = frozenset(range(1, n))
+    min_tour_cost = float('inf')
+    for last_city in range(1, n):
+        cost = memo[(full_subset, last_city)] + distances[last_city][0]
+        if cost < min_tour_cost:
+            min_tour_cost = cost
+            optimal_last_city = last_city
 
-# Example: 4 cities
-graph = [
-    [0, 10, 15, 20],
-    [10, 0, 35, 25],
-    [15, 35, 0, 30],
-    [20, 25, 30, 0]
+    # Reconstruct path
+    path = [0]
+    remaining_cities = set(range(1, n))
+    current_city = optimal_last_city
+    path.append(current_city)
+    remaining_cities.remove(current_city)
+
+    while remaining_cities:
+        prev_subset = frozenset(remaining_cities)
+        min_cost = float('inf')
+        next_city = -1
+        for city in remaining_cities:
+            cost = memo[(prev_subset, city)] + distances[city][current_city]
+            if cost < min_cost:
+                min_cost = cost
+                next_city = city
+        path.append(next_city)
+        remaining_cities.remove(next_city)
+        current_city = next_city
+
+    path.append(0)
+    path = [path[i] for i in reversed(range(len(path)))]
+
+    return min_tour_cost, path
+
+# Distance matrix
+distances = [
+    [0, 12, 8, 20, 15],
+    [12, 0, 10, 25, 8],
+    [8, 10, 0, 14, 12],
+    [20, 25, 14, 0, 18],
+    [15, 8, 12, 18, 0]
 ]
 
-tsp(graph)
+min_cost, optimal_path = tsp_dp(distances)
+city_names = ["Gulshan", "Dhanmondi", "Badda", "Mirpur", "Mohammadpur"]
+optimal_path_names = [city_names[i] for i in optimal_path]
+
+print("Optimal Tour Cost:", min_cost, "km")
+print("Optimal Path:", " → ".join(optimal_path_names))
